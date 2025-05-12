@@ -5,7 +5,15 @@
 -export([stop/1]).
 
 start(_Type, _Args) ->
-	test_task_sup:start_link().
+	Dispatch = cowboy_router:compile([
+		{'_', [{"/sport", test_task_sport_handler, []}]}
+	]),
+	{ok, _} = cowboy:start_clear(test_task_http_listener,
+		[{port, 8080}],
+		#{env => #{dispatch => Dispatch}}
+	),
+	linein_sup:start_link().
 
 stop(_State) ->
-	ok.
+	ok = cowboy:stop_listener(test_task_listener).
+
