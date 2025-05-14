@@ -10,6 +10,26 @@ init(Req0, State) ->
   {ok, Req, State}.
 
 dispatch(<<"POST">>, <<"/sport/get_all">>, Body, Req0) ->
-  test_task_api:get(Body, Req0);
+  {ok, Sql, Params} = test_task_sport_api:get(Body),
+  case test_task_db:equery(Sql, Params) of
+    {ok, _, Rows} ->
+      Json = jsx:encode(Rows),
+      Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
+      {ok, Req};
+    {error, Reason} ->
+      Json = jsx:encode(#{error => Reason}),
+      Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
+      {ok, Req}
+  end;
 dispatch(<<"POST">>, <<"/sport/update">>, Body, Req0) ->
-  test_task_api:update(Body, Req0).
+  {Sql, Params} = test_task_sport_api:update(Body),
+  case test_task_db:equery(Sql, Params) of
+    {ok, _, [{Id}]} ->
+      Json1 = jsx:encode(#{id => Id}),
+      Req = cowboy_req:reply(201, #{<<"content-type">> => <<"application/json">>}, Json1, Req0),
+      {ok, Req};
+    {error, Reason} ->
+      Json1 = jsx:encode(#{error => Reason}),
+      Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json1, Req0),
+      {ok, Req}
+  end.
