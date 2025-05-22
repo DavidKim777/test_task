@@ -12,7 +12,7 @@ start(_Type, _Args) ->
 		[{port, 8080}],
 		#{env => #{dispatch => Dispatch}}
 	),
-	linein_sup:start_link().
+	test_task_sup:start_link().
 
 stop(_State) ->
 	ok = cowboy:stop_listener(test_task_listener).
