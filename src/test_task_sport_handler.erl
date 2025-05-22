@@ -26,7 +26,7 @@ dispatch(<<"POST">>, <<"/sport/update">>, Body, Req0) ->
   case test_task_db:equery(Sql, Params) of
     {ok, Count} ->
       Json = jsx:encode(Count),
-      Req = cowboy_req:reply(200, #{<<"content-type">> => <<"applocation/json">>}, Json, Req0),
+      Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
       {ok, Req};
     {error, Reason} ->
       Json1 = jsx:encode(#{error => Reason}),
@@ -48,12 +48,23 @@ dispatch(<<"POST">>, <<"/sport/create">>, Body, Req0) ->
 dispatch(<<"POST">>, <<"/sport/delete">>, Body, Req0) ->
   {Sql, Params} = test_task_sport_api:delete(Body),
   case test_task_db:equery(Sql, Params) of
-    {ok, Id} ->
-      Json = jsx:encode(#{message => <<"Deleted">>, id => Id}),
-      Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req};
-    not_found ->
-      Json = jsx:encode(#{error => <<"Not found">>}),
-      Req = cowboy_req:reply(404, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req}
+    {ok, _, Rows} ->
+      reply_for_rows_delete(Rows, Req0);
+    {error, Reason} ->
+      reply_error(Reason, Req0)
   end.
+
+
+reply_for_rows_delete(Req0, [{Id}]) ->
+  Json = jsx:encode(#{message => <<"Deleted">>, id => Id}),
+  Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
+  {ok, Req};
+reply_for_rows_delete(Req0, []) ->
+  Json = jsx:encode(#{error => <<"Not found">>}),
+  Req = cowboy_req:reply(404, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
+  {ok, Req}.
+
+reply_error(Req0, {error, Reason}) ->
+  Json1 = jsx:encode(#{error => Reason}),
+  Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json1, Req0),
+  {ok, Req}.
