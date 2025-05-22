@@ -1,36 +1,33 @@
 -module(test_task_sport_api).
 
--export([get/2, update/2]).
+-export([get/1, create/1, update/1, delete/1]).
 
 
-get(Body, Req0) ->
+get(Body) ->
   {struct, DecodeMap}= jsx:decode(Body),
   Name = maps:get(<<"Name">>, DecodeMap),
   Sql = "SELECT * FROM sport WHERE name = $1",
   Params = [binary_to_list(Name)],
-  case linein_db:equery(Sql, Params) of
-    {ok, _, Rows} ->
-      Json = jsx:encode(Rows),
-      Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req};
-    {error, Reason} ->
-      Json = jsx:encode(#{error => Reason}),
-      Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req}
-  end.
+  {Sql, Params}.
 
-update(Body, Req0) ->
+create(Body) ->
   {struct, DecodeMap}= jsx:decode(Body),
   Name = maps:get(<<"Name">>, DecodeMap),
   Sql = "INSERT INTO sports(name) VALUES ($1) RETURNING id",
   Params = [binary_to_list(Name)],
-  case linein_db:equery(Sql, Params) of
-    {ok, _, [{Id}]} ->
-      Json1 = jsx:encode(#{id => Id}),
-      Req = cowboy_req:reply(201, #{<<"content-type">> => <<"application/json">>}, Json1, Req0),
-      {ok, Req};
-    {error, Reason} ->
-      Json1 = jsx:encode(#{error => Reason}),
-      Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json1, Req0),
-      {ok, Req}
-  end.
+  {Sql, Params}.
+
+update(Body) ->
+  {struct, DecodeMap}= jsx:decode(Body),
+  Name = maps:get(<<"Name">>, DecodeMap),
+  Id = maps:get(<<"Id">>, DecodeMap),
+  Sql = "UPDATE sports SET name = $1 WHERE id = $2",
+  Params = [Name, Id],
+  {Sql, Params}.
+
+delete(Body) ->
+  {struct, DecodeMap}= jsx:decode(Body),
+  Id = maps:get(<<"Id">>, DecodeMap),
+  Sql = "DELETE FROM sports WHERE id = $1",
+  Params = [Id],
+  {Sql, Params}.
