@@ -10,43 +10,50 @@ init(Req0, State) ->
   {ok, Req, State}.
 
 dispatch(<<"POST">>, <<"/sport/get_all">>, Body, Req0) ->
-  {ok, Sql, Params} = test_task_sport_api:get(Body),
+  {struct, DecodeMap} = jsx:decode(Body),
+  {ok, Sql, Params} = test_task_sport_api:get(DecodeMap),
   case test_task_db:equery(Sql, Params) of
     {ok, _, Rows} ->
-      Json = jsx:encode(Rows),
+      Json = jsx:encode(#{status => <<"success">>, data => Rows}),
       Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
       {ok, Req};
     {error, Reason} ->
-      Json = jsx:encode(#{error => Reason}),
+      lager:error("Database query failed: ~p", [Reason]),
+      Json = jsx:encode(#{status => <<"error">>, message => <<"Internal server error">>}),
       Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
       {ok, Req}
   end;
 dispatch(<<"POST">>, <<"/sport/update">>, Body, Req0) ->
-  {Sql, Params} = test_task_sport_api:update(Body),
+  {struct, DecodeMap}= jsx:decode(Body),
+  {Sql, Params} = test_task_sport_api:update(DecodeMap),
   case test_task_db:equery(Sql, Params) of
     {ok, Count} ->
-      Json = jsx:encode(Count),
+      Json = jsx:encode(#{status => <<"success">>, data => Count}),
       Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
       {ok, Req};
     {error, Reason} ->
-      Json1 = jsx:encode(#{error => Reason}),
-      Req = cowboy_req:reply(404, #{<<"content-type">> => <<"application/json">>}, Json1, Req0),
+      MessageError = lager:error("Not found: ~p", [Reason]),
+      Json = jsx:encode(#{status => <<"error">>, message => MessageError}),
+      Req = cowboy_req:reply(404, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
       {ok, Req}
   end;
 dispatch(<<"POST">>, <<"/sport/create">>, Body, Req0) ->
-  {Sql, Params} = test_task_sport_api:create(Body),
+  {struct, DecodeMap}= jsx:decode(Body),
+  {Sql, Params} = test_task_sport_api:create(DecodeMap),
   case test_task_db:equery(Sql, Params) of
     {ok, _, [{Id}]} ->
-      Json = jsx:encode(#{id => Id}),
+      Json = jsx:encode(#{status => <<"success">>, id => Id}),
       Req = cowboy_req:reply(201, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
       {ok, Req};
     {error, Reason} ->
-      Json1 = jsx:encode(#{error => Reason}),
-      Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json1, Req0),
+      lager:error("Database query failed: ~p", [Reason]),
+      Json = jsx:encode(#{status => <<"error">>, message => <<"Internal server error">>}),
+      Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
       {ok, Req}
   end;
 dispatch(<<"POST">>, <<"/sport/delete">>, Body, Req0) ->
-  {Sql, Params} = test_task_sport_api:delete(Body),
+  {struct, DecodeMap}= jsx:decode(Body),
+  {Sql, Params} = test_task_sport_api:delete(DecodeMap),
   case test_task_db:equery(Sql, Params) of
     {ok, _, Rows} ->
       reply_for_rows_delete(Rows, Req0);
@@ -60,11 +67,12 @@ reply_for_rows_delete(Req0, [{Id}]) ->
   Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
   {ok, Req};
 reply_for_rows_delete(Req0, []) ->
-  Json = jsx:encode(#{error => <<"Not found">>}),
+  Json = jsx:encode(#{status => <<"error">>, message => <<"Not found">>}),
   Req = cowboy_req:reply(404, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
   {ok, Req}.
 
 reply_error(Req0, {error, Reason}) ->
-  Json1 = jsx:encode(#{error => Reason}),
-  Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json1, Req0),
+  lager:error("Database query failed: ~p", [Reason]),
+  Json = jsx:encode(#{status => <<"error">>, message => <<"Internal server error">>}),
+  Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
   {ok, Req}.

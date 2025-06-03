@@ -7,4 +7,4 @@
 	{optional_applications, []},
 	{mod, {'test_task_app', []}},
 	{env, []}
-]}.git
+]}.
