@@ -11,8 +11,8 @@ init(Req0, State) ->
 
 dispatch(<<"POST">>, <<"/sport/get_all">>, Body, Req0) ->
   {struct, DecodeMap} = jsx:decode(Body),
-  {ok, Sql, Params} = test_task_sport_api:get(DecodeMap),
-  case test_task_db:equery(Sql, Params) of
+  {ok, Sql, _} = test_task_sport_api:get(DecodeMap),
+  case test_task_db:equery(Sql) of
     {ok, _, Rows} ->
       Json = jsx:encode(#{status => <<"success">>, data => Rows}),
       Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
@@ -25,22 +25,22 @@ dispatch(<<"POST">>, <<"/sport/get_all">>, Body, Req0) ->
   end;
 dispatch(<<"POST">>, <<"/sport/update">>, Body, Req0) ->
   {struct, DecodeMap}= jsx:decode(Body),
-  {Sql, Params} = test_task_sport_api:update(DecodeMap),
-  case test_task_db:equery(Sql, Params) of
+  {Sql, _} = test_task_sport_api:update(DecodeMap),
+  case test_task_db:query(Sql) of
     {ok, Count} ->
       Json = jsx:encode(#{status => <<"success">>, data => Count}),
       Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
       {ok, Req};
     {error, Reason} ->
-      MessageError = lager:error("Not found: ~p", [Reason]),
-      Json = jsx:encode(#{status => <<"error">>, message => MessageError}),
+      lager:error("Not found: ~p", [Reason]),
+      Json = jsx:encode(#{status => <<"error">>, message => "Not found"}),
       Req = cowboy_req:reply(404, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
       {ok, Req}
   end;
 dispatch(<<"POST">>, <<"/sport/create">>, Body, Req0) ->
   {struct, DecodeMap}= jsx:decode(Body),
-  {Sql, Params} = test_task_sport_api:create(DecodeMap),
-  case test_task_db:equery(Sql, Params) of
+  {Sql, _} = test_task_sport_api:create(DecodeMap),
+  case test_task_db:query(Sql) of
     {ok, _, [{Id}]} ->
       Json = jsx:encode(#{status => <<"success">>, id => Id}),
       Req = cowboy_req:reply(201, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
@@ -53,8 +53,8 @@ dispatch(<<"POST">>, <<"/sport/create">>, Body, Req0) ->
   end;
 dispatch(<<"POST">>, <<"/sport/delete">>, Body, Req0) ->
   {struct, DecodeMap}= jsx:decode(Body),
-  {Sql, Params} = test_task_sport_api:delete(DecodeMap),
-  case test_task_db:equery(Sql, Params) of
+  {Sql, _} = test_task_sport_api:delete(DecodeMap),
+  case test_task_db:query(Sql) of
     {ok, _, Rows} ->
       reply_for_rows_delete(Rows, Req0);
     {error, Reason} ->

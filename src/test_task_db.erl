@@ -1,21 +1,21 @@
 -module(test_task_db).
 
--export([conn/0, close_conn/1, equery/2]).
+-export([start_link/0, query/1]).
 
-conn() ->
-  application:get_env(linein_db, db),
-  {ok, Connect} = epgsql:connect(#{
+start_link() ->
+  {ok, Pid} = epgsql:connect(#{
     host => "localhost",
     username => "postgres",
     password => "postgres",
     database => "linein_db"
   }),
-  {ok, #{connect => Connect}}.
+  Pid.
 
-close_conn(Connect) ->
-  ok = epgsql:close(Connect).
-
-equery(Sql, Parameters) ->
-  #{connect := Conn}= conn(),
-  epgsql:equery(Conn, Sql, Parameters),
-  close_conn(Conn).
+query(Sql) ->
+  {ok, Conn} = poolboy:checkout(db_pool),
+  try
+    {ok, Result} = epgsql:squery(Conn, Sql),
+    Result
+  after
+    poolboy:checkin(db_pool, Conn)
+  end.
