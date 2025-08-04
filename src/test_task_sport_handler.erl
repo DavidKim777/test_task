@@ -6,73 +6,90 @@ init(Req0, State) ->
   Method = cowboy_req:method(Req0),
   Path = cowboy_req:path(Req0),
   {ok, Body, _} = cowboy_req:read_body(Req0),
-  {ok, Req} = dispatch(Method, Path, Body, Req0),
+  {struct, DecodeMap}= jsx:decode(Body),
+  {ok, StatusCode, Map} = dispatch(Method, Path, DecodeMap),
+  Json = jsx:encode(Map),
+  Headers = #{<<"content-type">> => <<"application/json">>},
+  Req = cowboy_req:reply(StatusCode, Headers, Json, Req0),
   {ok, Req, State}.
 
-dispatch(<<"POST">>, <<"/sport/get_all">>, Body, Req0) ->
-  {struct, DecodeMap} = jsx:decode(Body),
-  {ok, Sql, _} = test_task_sport_api:get(DecodeMap),
-  case test_task_db:equery(Sql) of
+dispatch(<<"POST">>, <<"/sport/get_all">>, DecodeMap) ->
+  {ok, Sql, Params} = test_task_sport_api:get(DecodeMap),
+  case test_task_db:query(Sql, Params) of
     {ok, _, Rows} ->
-      Json = jsx:encode(#{status => <<"success">>, data => Rows}),
-      Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req};
+      {ok, 200, #{status => <<"success">>, data => Rows}};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
-      Json = jsx:encode(#{status => <<"error">>, message => <<"Internal server error">>}),
-      Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req}
+      {ok, 500, #{status => <<"error">>, message => <<"Internal server error">>}}
   end;
-dispatch(<<"POST">>, <<"/sport/update">>, Body, Req0) ->
-  {struct, DecodeMap}= jsx:decode(Body),
-  {Sql, _} = test_task_sport_api:update(DecodeMap),
-  case test_task_db:query(Sql) of
+dispatch(<<"POST">>, <<"/sport/update">>, DecodeMap) ->
+  {ok, Sql, Params} = test_task_sport_api:update(DecodeMap),
+  case test_task_db:query(Sql, Params) of
     {ok, Count} ->
-      Json = jsx:encode(#{status => <<"success">>, data => Count}),
-      Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req};
+      {ok, 200, #{status => <<"success">>, data => Count}};
     {error, Reason} ->
       lager:error("Not found: ~p", [Reason]),
-      Json = jsx:encode(#{status => <<"error">>, message => "Not found"}),
-      Req = cowboy_req:reply(404, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req}
+      {ok, 404, #{status => <<"error">>, message => "Not found"}}
   end;
-dispatch(<<"POST">>, <<"/sport/create">>, Body, Req0) ->
-  {struct, DecodeMap}= jsx:decode(Body),
-  {Sql, _} = test_task_sport_api:create(DecodeMap),
-  case test_task_db:query(Sql) of
+dispatch(<<"POST">>, <<"/sport/create">>, DecodeMap) ->
+  {ok, Sql, Params} = test_task_sport_api:create(DecodeMap),
+  case test_task_db:query(Sql, Params) of
     {ok, _, [{Id}]} ->
-      Json = jsx:encode(#{status => <<"success">>, id => Id}),
-      Req = cowboy_req:reply(201, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req};
+      {ok, 200, #{status => <<"success">>, data => [{Id}]}};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
-      Json = jsx:encode(#{status => <<"error">>, message => <<"Internal server error">>}),
-      Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-      {ok, Req}
+      {ok, 500, #{status => <<"error">>, message => <<"Internal server error">>}}
   end;
-dispatch(<<"POST">>, <<"/sport/delete">>, Body, Req0) ->
-  {struct, DecodeMap}= jsx:decode(Body),
-  {Sql, _} = test_task_sport_api:delete(DecodeMap),
-  case test_task_db:query(Sql) of
-    {ok, _, Rows} ->
-      reply_for_rows_delete(Rows, Req0);
+dispatch(<<"POST">>, <<"/sport/delete">>, DecodeMap) ->
+  {ok, Sql, Params} = test_task_sport_api:delete(DecodeMap),
+  case test_task_db:query(Sql, Params) of
+    {ok, _, [{Id}]} ->
+      reply_for_rows_delete(Id);
     {error, Reason} ->
-      reply_error(Reason, Req0)
+      reply_error(Reason)
+  end;
+dispatch(<<"POST">>, <<"/category/get_all">>, DecodeMap) ->
+  {ok, Sql, Params} = test_task_category_api:get(DecodeMap),
+  case test_task_db:query(Sql, Params) of
+    {ok, _, Rows} ->
+      {ok, 200, #{status => <<"success">>, data => Rows}};
+    {error, Reason} ->
+      lager:error("Database query failed: ~p", {Reason}),
+      {ok, 500, #{status => <<"error">>, message => <<"Internal server error">> }}
+  end;
+dispatch(<<"POST">>, <<"/category/create">>, DecodeMap) ->
+  {ok, Sql, Params} = test_task_category_api:create(DecodeMap),
+  case test_task_db:query(Sql, Params) of
+    {ok, _, {[Id]}} ->
+      {ok, 200, #{status => <<"success">>, id => Id}};
+    {error, Reason} ->
+      lager:error("Database query failed: ~p", [Reason]),
+      {ok, 500,#{status => <<"error">>, message => <<"Internal server error">>}}
+  end;
+dispatch(<<"POST">>, <<"/category/update">>, DecodeMap) ->
+  {ok, Sql, Params} = test_task_category_api:update(DecodeMap),
+  case test_task_db:query(Sql, Params) of
+    {ok, Count} ->
+      {ok, 200, #{status => <<"success">>, data => Count}};
+    {error,Reason} ->
+      lager:error("Not found: ~p", [Reason]),
+      {ok, 404, #{status => <<"error">>, message => <<"Not found">>}}
+  end;
+dispatch(<<"POST">>, <<"/category/delete">>, DecodeMap) ->
+  {ok, Sql, Params} = test_task_category_api:delete(DecodeMap),
+  case test_task_db:query(Sql, Params) of
+    {ok, _,  [{Id}]} ->
+      reply_for_rows_delete([{Id}]);
+    {error, Reason} ->
+      reply_error(Reason)
   end.
 
 
-reply_for_rows_delete(Req0, [{Id}]) ->
-  Json = jsx:encode(#{message => <<"Deleted">>, id => Id}),
-  Req = cowboy_req:reply(200, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-  {ok, Req};
-reply_for_rows_delete(Req0, []) ->
-  Json = jsx:encode(#{status => <<"error">>, message => <<"Not found">>}),
-  Req = cowboy_req:reply(404, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-  {ok, Req}.
+reply_for_rows_delete([{Id}]) ->
+  {ok, 200, #{message => <<"Deleted">>, id => Id}};
+reply_for_rows_delete([]) ->
+  {ok, 404, #{status => <<"error">>, message => <<"Not found">>}}.
 
-reply_error(Req0, {error, Reason}) ->
+reply_error(Reason) ->
   lager:error("Database query failed: ~p", [Reason]),
-  Json = jsx:encode(#{status => <<"error">>, message => <<"Internal server error">>}),
-  Req = cowboy_req:reply(500, #{<<"content-type">> => <<"application/json">>}, Json, Req0),
-  {ok, Req}.
+  {ok, 500, #{status => <<"error">>, message => <<"Internal server error">>}}.
