@@ -11,4 +11,9 @@ dep_liver = git https://github.com/erlangbureau/liver 0.9.0
 dep_lager = git https://github.com/erlang-lager/lager 3.9.2
 dep_poolboy = git https://github.com/devinus/poolboy 1.5.2
 
+CONFIG = config/test_task.config
+RUN_ERL = erl -pa ebin -pa deps/*/ebin -config $(CONFIG) -s $(PROJECT)
+
 include erlang.mk
+
+run: $(RUN_ERL)

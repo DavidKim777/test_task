@@ -1,45 +1,47 @@
--module(test_task_category_api).
+-module(test_task_event_api).
 
 -export([get/1, create/1, update/1, delete/1]).
 
 get(DecodeMap) ->
-  Id = maps:get(<<"id">>, DecodeMap),
+  Id = maps:get(<<"Id">>, DecodeMap),
   Name = maps:get(<<"Name">>, DecodeMap),
-  Sport_id = maps:get(<<"Sport_id">>, DecodeMap),
-  Sql = "SELECT * FROM category WHERE id = $1 AND name = $2 AND sport_id = $3",
-  Params = [Id, Name, Sport_id],
+  StartData = maps:get(<<"Start_data">>, DecodeMap),
+  Tournament_id = maps:get(<<"Tournament">>, DecodeMap),
+  Sql = "SELECT * FROM enevt WHERE id = $1 AND name = $2 AND start_data = $3 AND tournament_id = $4",
+  Params = [Id, Name, StartData, Tournament_id],
   case test_task_db:query(Sql, Params) of
     {ok, _, Rows} ->
       {ok, #{status => <<"success">>, data => Rows}};
     {error, Reason} ->
-      lager:error("Database query failed: ~p", {Reason}),
-      {error, #{status => <<"error">>, message => <<"Internal server error">> }}
+      lager:error("Datatbase query failed: ~p", [Reason]),
+      {error, #{status => <<"error">>, message => <<"Instal server error">>}}
   end.
 
 create(DecodeMap) ->
   Name = maps:get(<<"Name">>, DecodeMap),
-  SportId = maps:get(<<"SportId">>, DecodeMap),
-  Sql = "INSERT INTO category(name, sport_id) VALUES ($1, $2), ROUTING id",
-  Params = [Name, SportId],
+  StartData = maps:get(<<"Start_data">>, DecodeMap),
+  Tournament_id = maps:get(<<"Tournament_id">>, DecodeMap),
+  Sql = "INSERT INTO event(name, start_data, tournament_id) VALUES ($1, $2, $3) ROUTING id",
+  Params = [Name, StartData, Tournament_id],
   case test_task_db:query(Sql, Params) of
     {ok, _, {[Id]}} ->
-      {ok, #{status => <<"success">>, id => Id}};
+      {ok, #{status => <<"success">>, data => Id}};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
-      {error, #{status => <<"error">>, message => <<"Internal server error">>}}
+      {error, #{status => <<"error">>, message => <<"Instal server error">>}}
   end.
 
 update(DecodeMap) ->
-  Name = maps:get(<<"Name">>, DecodeMap),
   Id = maps:get(<<"Id">>, DecodeMap),
-  Sql = "UPDATE sports SET name = $1 WHERE id = $2",
-  Params = [Name, Id],
+  Name = maps:get(<<"Name">>, DecodeMap),
+  Sql = "UPDATE tournament SET name = $1 WHERE id = $2",
+  Params = [Id, Name],
   case test_task_db:query(Sql, Params) of
     {ok, Count} ->
       {ok, #{status => <<"success">>, data => Count}};
-    {error,Reason} ->
-      lager:error("Not found: ~p", [Reason]),
-      {error, #{status => <<"error">>, message => <<"Not found">>}}
+    {error, Reason} ->
+      lager:error("Database query failed: ~p", [Reason]),
+      {error, #{status => <<"error">>, message => <<"Not aund">>}}
   end.
 
 delete(DecodeMap) ->
