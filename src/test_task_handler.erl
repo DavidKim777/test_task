@@ -6,91 +6,89 @@ init(Req0, State) ->
   Method = cowboy_req:method(Req0),
   Path = cowboy_req:path(Req0),
   {ok, Body, _} = cowboy_req:read_body(Req0),
-  {struct, Arg}= jsx:decode(Body),
-  {Answer, Map} = dispatch(Method, Path, Arg),
-  StatusCode = case Answer of
+  {Reply, Json} = dispatch(Method, Path, Body),
+  StatusCode = case Reply of
     ok ->
       200;
     error ->
       500
   end,
-  Json = jsx:encode(Map),
   Headers = #{<<"content-type">> => <<"application/json">>},
   Req = cowboy_req:reply(StatusCode, Headers, Json, Req0),
   {ok, Req, State}.
 
-dispatch(<<"POST">>, Path, Arg) ->
+dispatch(<<"POST">>, Path, Body) ->
   case Path of
     <<"/sport/get_all">> ->
-      {Answer, Map} = test_task_sport_api:get(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_sport_api:get(Body),
+      {Reply, Json};
     <<"/sport/update">> ->
-      {Answer, Map}= test_task_sport_api:update(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_sport_api:update(Body),
+      {Reply, Json};
     <<"/sport/create">> ->
-      {Answer, Map} = test_task_sport_api:create(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_sport_api:create(Body),
+      {Reply, Json};
     <<"/sport/delete">> ->
-      {Answer, Map} = test_task_sport_api:delete(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_sport_api:delete(Body),
+      {Reply, Json};
     <<"/category/get_all">> ->
-      {Answer, Map} = test_task_category_api:get(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_category_api:get(Body),
+      {Reply, Json};
     <<"/category/create">> ->
-      {Answer, Map} = test_task_category_api:create(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_category_api:create(Body),
+      {Reply, Json};
     <<"/category/update">> ->
-      {Answer, Map} = test_task_category_api:update(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_category_api:update(Body),
+      {Reply, Json};
     <<"/category/delete">> ->
-      {Answer, Map} = test_task_category_api:delete(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_category_api:delete(Body),
+      {Reply, Json};
     <<"tournament/get_all">> ->
-      {Answer, Map} = test_task_tournament_api:get(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_tournament_api:get(Body),
+      {Reply, Json};
     <<"tournament/create">> ->
-      {Answer, Map} = test_task_tournament_api:create(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_tournament_api:create(Body),
+      {Reply, Json};
     <<"tournament/update">> ->
-      {Answer, Map} = test_task_tournament_api:update(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_tournament_api:update(Body),
+      {Reply, Json};
     <<"tournament/delete">> ->
-      {Answer, Map} = test_task_tournament_api:delete(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_tournament_api:delete(Body),
+      {Reply, Json};
     <<"event/get_all">> ->
-      {Answer, Map} = test_task_event_api:get(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_event_api:get(Body),
+      {Reply, Json};
     <<"event/create">> ->
-      {Answer, Map} = test_task_event_api:create(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_event_api:create(Body),
+      {Reply, Json};
     <<"event/update">> ->
-      {Answer, Map} = test_task_event_api:update(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_event_api:update(Body),
+      {Reply, Json};
     <<"event/delete">> ->
-      {Answer, Map} = test_task_event_api:delete(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_event_api:delete(Body),
+      {Reply, Json};
     <<"market/get_all">> ->
-      {Answer, Map} = test_task_market_api:get(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_market_api:get(Body),
+      {Reply, Json};
     <<"marcet/create">> ->
-      {Answer, Map} = test_task_market_api:create(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_market_api:create(Body),
+      {Reply, Json};
     <<"market/update">> ->
-      {Answer, Map}= test_task_market_api:update(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_market_api:update(Body),
+      {Reply, Json};
     <<"market/delete">> ->
-      {Answer, Map} = test_task_market_api:delete(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_market_api:delete(Body),
+      {Reply, Json};
     <<"outcome/get_all">> ->
-      {Answer, Map} = test_task_outcome_api:get(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_outcome_api:get(Body),
+      {Reply, Json};
     <<"outcome/create">> ->
-      {Answer, Map} = test_task_outcome_api:create(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_outcome_api:create(Body),
+      {Reply, Json};
     <<"outcome/update">> ->
-      {Answer, Map} = test_task_outcome_api:update(Arg),
-      {Answer, Map};
+      {Reply, Json} = test_task_outcome_api:update(Body),
+      {Reply, Json};
     <<"outcome/delete">> ->
-      {Answer, Map} = test_task_outcome_api:delete(Arg),
-      {Answer, Map}
+      {Reply, Json} = test_task_outcome_api:delete(Body),
+      {Reply, Json}
   end.

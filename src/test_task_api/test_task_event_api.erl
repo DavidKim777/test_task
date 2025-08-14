@@ -2,7 +2,8 @@
 
 -export([get/1, create/1, update/1, delete/1]).
 
-get(DecodeMap) ->
+get(Body) ->
+  DecodeMap = jsx:decode(Body),
   Id = maps:get(<<"Id">>, DecodeMap),
   Name = maps:get(<<"Name">>, DecodeMap),
   StartData = maps:get(<<"Start_data">>, DecodeMap),
@@ -11,13 +12,16 @@ get(DecodeMap) ->
   Params = [Id, Name, StartData, Tournament_id],
   case test_task_db:query(Sql, Params) of
     {ok, _, Rows} ->
-      {ok, #{status => <<"success">>, data => Rows}};
+      Json = jsx:encode(#{status => <<"success">>, data => Rows}),
+      {ok, Json};
     {error, Reason} ->
       lager:error("Datatbase query failed: ~p", [Reason]),
-      {error, #{status => <<"error">>, message => <<"Instal server error">>}}
+      Json = jsx:encode(#{status => <<"error">>, message => <<"Instal server error">>}),
+      {error, Json}
   end.
 
-create(DecodeMap) ->
+create(Body) ->
+  DecodeMap = jsx:decode(Body),
   Name = maps:get(<<"Name">>, DecodeMap),
   StartData = maps:get(<<"Start_data">>, DecodeMap),
   Tournament_id = maps:get(<<"Tournament_id">>, DecodeMap),
@@ -25,26 +29,32 @@ create(DecodeMap) ->
   Params = [Name, StartData, Tournament_id],
   case test_task_db:query(Sql, Params) of
     {ok, _, {[Id]}} ->
-      {ok, #{status => <<"success">>, data => Id}};
+      Json = jsx:encode(#{status => <<"success">>, data => Id}),
+      {ok, Json};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
-      {error, #{status => <<"error">>, message => <<"Instal server error">>}}
+      Json = jsx:encode(#{status => <<"error">>, message => <<"Instal server error">>}),
+      {error, Json}
   end.
 
-update(DecodeMap) ->
+update(Body) ->
+  DecodeMap = jsx:decode(Body),
   Id = maps:get(<<"Id">>, DecodeMap),
   Name = maps:get(<<"Name">>, DecodeMap),
   Sql = "UPDATE tournament SET name = $1 WHERE id = $2",
   Params = [Id, Name],
   case test_task_db:query(Sql, Params) of
     {ok, Count} ->
-      {ok, #{status => <<"success">>, data => Count}};
+      Json = jsx:encode(#{status => <<"success">>, data => Count}),
+      {ok, Json};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
-      {error, #{status => <<"error">>, message => <<"Not aund">>}}
+      Json = jsx:encode(#{status => <<"error">>, message => <<"Not aund">>}),
+      {error, Json}
   end.
 
-delete(DecodeMap) ->
+delete(Body) ->
+  DecodeMap = jsx:decode(Body),
   Id = maps:get(<<"Id">>, DecodeMap),
   Sql = "DELETE FROM category WHERE id = $1",
   Params = [Id],
@@ -56,10 +66,13 @@ delete(DecodeMap) ->
   end.
 
 reply_for_rows_delete([{Id}]) ->
-  {ok, #{message => <<"Deleted">>, id => Id}};
+  Json = jsx:encode(#{message => <<"Deleted">>, id => Id}),
+  {ok, Json};
 reply_for_rows_delete([]) ->
-  {error, #{status => <<"error">>, message => <<"Not found">>}}.
+  Json = jsx:encode(#{status => <<"error">>, message => <<"Not found">>}),
+  {error, Json}.
 
 reply_error(Reason) ->
   lager:error("Database query failed: ~p", [Reason]),
-  {error, #{status => <<"error">>, message => <<"Internal server error">>}}.
+  Json = jsx:encode(#{status => <<"error">>, message => <<"Internal server error">>}),
+  {error, Json}.
