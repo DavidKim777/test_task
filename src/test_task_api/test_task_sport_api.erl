@@ -43,8 +43,11 @@ update(Body) ->
   Id = maps:get(<<"Id">>, DecodeMap),
   Sql = "UPDATE sports SET name = $1 WHERE id = $2",
   Params = [Name, Id],
+  RedisKey = io_lib:format("sport:~p:~s", Params),
+  RedisPid = whereis(redis_pid),
   case test_task_db:query(Sql, Params) of
     {ok, Count} ->
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Params, "EX", 86400]),
       Map = #{status => <<"success">>, data => Count},
       Json = jsx:encode(Map),
       {ok, Json};
@@ -60,8 +63,11 @@ delete(Body) ->
   Id = maps:get(<<"Id">>, DecodeMap),
   Sql = "DELETE FROM sports WHERE id = $1",
   Params = [Id],
+  RedisKey = io_lib:format("sport:~p:~s", Params),
+  RedisPid = whereis(redis_pid),
   case test_task_db:query(Sql, Params) of
     {ok, _, [{Id}]} ->
+      _ = delete_cache(RedisPid, ["DEL", RedisKey]),
       reply_for_rows_delete(Id);
     {error, Reason} ->
       reply_error(Reason)
@@ -87,7 +93,7 @@ get_cache_or_db(RedisPid, "GET", Kay, Params, Sql) ->
     {ok, undefined} ->
       {ok, Map} = logics_for_query_db(Sql, Params),
       JsonResult = jsx:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", Kay, JsonResult]),
+      _ = set_or_update_cache(RedisPid, ["SET", Kay, JsonResult, "EX", 86400]),
       {ok, Map};
     {ok, BinJson} ->
       Map = jsx:decode(BinJson, [return_maps]),
@@ -97,17 +103,22 @@ get_cache_or_db(RedisPid, "GET", Kay, Params, Sql) ->
       {error, #{status => <<"error">>, message => <<"Internal server error">>}}
   end.
 
-set_or_update_cache(RedisPid, ["SET", Kay, Value]) ->
-  test_task_redis:query(RedisPid, ["SET", Kay, Value]).
-
-delete_cache(RedisPid, ["DEL", Kay]) ->
-  test_task_redis:query(RedisPid, ["DEL", Kay]).
-
 logics_for_query_db(Sql, Params) ->
   case test_task_db:query(Sql, Params) of
     {ok, _, Rows} ->
-       #{status => <<"success">>, data => Rows};
+      #{status => <<"success">>, data => Rows};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
       #{status => <<"error">>, message => <<"Internal server error">>}
+  end.
+
+set_or_update_cache(RedisPid, ["SET", Kay, Value, "EX", Ttl]) ->
+  test_task_redis:query(RedisPid, ["SET", Kay, Value, "EX", Ttl]).
+
+delete_cache(RedisPid, ["DEL", Kay]) ->
+  case test_task_redis:query(RedisPid, ["DEL", Kay]) of
+    {ok, Result} ->
+      {ok, Result};
+    {error, undefined} ->
+      {error, undefined}
   end.
