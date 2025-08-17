@@ -8,4 +8,10 @@ start_link() ->
   ok.
 
 query(Pid, List) ->
-  eredis:q(Pid, List).
+  {ok, Conn} = poolboy:checkout(redis_pool),
+  try
+    {ok, Result} =  eredis:q(Pid, List),
+      Result
+  after
+    poolboy:checkin(redis_pool, Conn)
+  end.
