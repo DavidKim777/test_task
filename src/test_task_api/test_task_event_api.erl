@@ -82,10 +82,10 @@ get_cache_or_db(RedisPid, RedisKey, "GET", Params, Sql) ->
   case test_task_redis:query(RedisPid, ["GET", RedisKey]) of
     {ok, undefined} ->
       {ok, Map} = query_get_db(Sql, Params),
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", 86400]);
-    {ok, BinJson} ->
-      {ok, BinJson};
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 86400]);
+    {ok, Bin} ->
+      {ok, Bin};
     {error, Reason} ->
       lager:error("Error: ~p", [Reason]),
       {error, #{status => <<"error">>, message => <<"Internal server error">>}}

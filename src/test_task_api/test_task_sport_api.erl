@@ -22,8 +22,8 @@ create(Body) ->
   case test_task_db:query(Sql, Params) of
     {ok, _, [{Id}]} ->
       Map = #{status => <<"success">>, data => Id},
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", 86400]),
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 86400]),
       {ok, Map};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
@@ -42,8 +42,8 @@ update(Body) ->
   case test_task_db:query(Sql, Params) of
     {ok, Count} ->
       Map = #{status => <<"success">>, data => Count},
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", 86400]),
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 86400]),
       {ok, Map};
     {error, Reason} ->
       lager:error("Not found: ~p", [Reason]),
@@ -81,11 +81,11 @@ get_cache_or_db(RedisPid, "GET", Kay, Params, Sql) ->
   case test_task_redis:query(RedisPid, ["GET", Kay]) of
     {ok, undefined} ->
       {ok, Map} = query_get_db(Sql, Params),
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", Kay, JsonResult, "EX", 86400]),
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", Kay, Bin, "EX", 86400]),
       {ok, Map};
-    {ok, BinJson} ->
-      {ok, BinJson};
+    {ok, Bin} ->
+      {ok, Bin};
     {error, Reason} ->
       lager:error("Error: ~p", [Reason]),
       {error, #{status => <<"error">>, message => <<"Internal server error">>}}
@@ -94,10 +94,12 @@ get_cache_or_db(RedisPid, "GET", Kay, Params, Sql) ->
 query_get_db(Sql, Params) ->
   case test_task_db:query(Sql, Params) of
     {ok, _, Rows} ->
-      #{status => <<"success">>, data => Rows};
+      Map = #{status => <<"success">>, data => Rows},
+      {ok, Map};
     {error, Reason} ->
-      lager:error("Database query failed: ~p", [Reason]),
-      #{status => <<"error">>, message => <<"Internal server error">>}
+      lager:error("Database query failed: ~p", {Reason}),
+      Map = #{status => <<"error">>, message => <<"Internal server error">> },
+      {error, Map}
   end.
 
 set_or_update_cache(RedisPid, ["SET", Kay, Value, "EX", Ttl]) ->

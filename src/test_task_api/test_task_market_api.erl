@@ -8,24 +8,22 @@ get(DecodeMap) ->
   EventId = maps:get(<<"Event_id">>, DecodeMap),
   Sql = "SELECT * FROM marcet WHERE id = $1 AND name = $2 AND event_id = $3",
   Params = [Id, Name, EventId],
-  case test_task_db:query(Sql, Params) of
-    {ok, _, Rows} ->
-      Map = #{status => <<"success">>, data => Rows},
-      {ok, Map};
-    {error, Reason} ->
-      lager:error("Database query failed: ~p", [Reason]),
-      Map = #{status => <<"error">>, message => <<"Internal server error">>},
-      {error, Map}
-  end.
+  RedisKey = io_lib:format("sport:~p:~s", Params),
+  RedisPid = whereis(redis_pid),
+  get_cache_or_db(RedisPid, RedisKey, "GET", Params, Sql).
 
 create(DecodeMap) ->
   Name = maps:get(<<"Name">>, DecodeMap),
   EventId = maps:get(<<"Event_id">>, DecodeMap),
   Sql = "INSERT INTO market(name, event_id) VALUES ($1, $2) ROUTING id",
   Params = [Name, EventId],
+  RedisKey = io_lib:format("sport:~p:~s", Params),
+  RedisPid = whereis(redis_pid),
   case test_task_db:query(Sql, Params) of
     {ok, _, [{Id}]} ->
       Map = #{status => <<"success">>, data => Id},
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 21600]),
       {ok, Map};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
@@ -38,9 +36,13 @@ update(DecodeMap) ->
   Name = maps:get(<<"Name">>, DecodeMap),
   Sql = "UPDATE sports SET name = $1 WHERE id = $2",
   Params = [Id, Name],
+  RedisKey = io_lib:format("sport:~p:~s", Params),
+  RedisPid = whereis(redis_pid),
   case test_task_db:query(Sql, Params) of
     {ok, Count} ->
       Map = #{status => <<"success">>, data => Count},
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 21600]),
       {ok, Map};
     {error,Reason} ->
       lager:error("Not found: ~p", [Reason]),
@@ -52,6 +54,9 @@ delete(DecodeMap) ->
   Id = maps:get(<<"Id">>, DecodeMap),
   Sql = "DELETE FROM sports WHERE id = $1",
   Params = [Id],
+  RedisKey = io_lib:format("sport:~p:~s", Params),
+  RedisPid = whereis(redis_pid),
+  _ = delete_cache(RedisPid, ["DEL", RedisKey]),
   case test_task_db:query(Sql, Params) of
     {ok, _, [{Id}]} ->
       reply_for_rows_delete(Id);
@@ -70,3 +75,39 @@ reply_error(Reason) ->
   lager:error("Database query failed: ~p", [Reason]),
   Map = #{status => <<"error">>, message => <<"Internal server error">>},
   {error, Map}.
+
+get_cache_or_db(RedisPid, RedisKey, "GET", Params, Sql) ->
+  case test_task_redis:query(RedisPid, ["GET", RedisKey]) of
+    {ok, undefined} ->
+      {ok, Map} = query_get_db(Sql, Params),
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 21600]);
+    {ok, Bin} ->
+      {ok, Bin};
+    {error, Reason} ->
+      lager:error("Error: ~p", [Reason]),
+      {error, #{status => <<"error">>, message => <<"Internal server error">>}}
+  end.
+
+query_get_db(Sql, Params) ->
+  case test_task_db:query(Sql, Params) of
+    {ok, _, Rows} ->
+      Map = #{status => <<"success">>, data => Rows},
+      {ok, Map};
+    {error, Reason} ->
+      lager:error("Database query failed: ~p", [Reason]),
+      Map = #{status => <<"error">>, message => <<"Internal server error">>},
+      {error, Map}
+  end.
+
+set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", Ttl]) ->
+  test_task_redis:query(RedisPid, ["SET", RedisKey, JsonResult, "EX", Ttl]).
+
+delete_cache(RedisPid, ["DEL", Kay]) ->
+  case test_task_redis:query(RedisPid, ["DEL", Kay]) of
+    {ok, Result} ->
+      {ok, Result};
+    {error, undefined} ->
+      {error, undefined}
+  end.
+

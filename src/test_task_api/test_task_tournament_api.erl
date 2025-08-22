@@ -22,8 +22,8 @@ create(DecodeMap) ->
   case test_task_db:query(Sql, Params) of
     {ok, _, {[Id]}} ->
       Map = #{status => <<"success">>, data => Id},
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", 21600]),
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 21600]),
       {ok, Map};
     {error, Reason} ->
       lager:error("Databas query failed: ~p", [Reason]),
@@ -41,8 +41,8 @@ update(DecodeMap) ->
   case test_task_db:query(Sql, Params) of
     {ok, Count} ->
       Map = #{status => <<"success">>, data => Count},
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", 21600]),
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 21600]),
       {ok, Map};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
@@ -80,10 +80,10 @@ get_cache_or_db(RedisPid, RedisKey, "GET", Params, Sql) ->
   case test_task_redis:query(RedisPid, ["GET", RedisKey]) of
     {ok, undefined} ->
       {ok, Map} = query_get_db(Sql, Params),
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", 21600]);
-    {ok, BinJson} ->
-      {ok, BinJson};
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 21600]);
+    {ok, Bin} ->
+      {ok, Bin};
     {error, Reason} ->
       lager:error("Error: ~p", [Reason]),
       {error, #{status => <<"error">>, message => <<"Internal server error">>}}

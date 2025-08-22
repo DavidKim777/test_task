@@ -22,8 +22,8 @@ create(DecodeMap) ->
   case test_task_db:query(Sql, Params) of
     {ok, _, {[Id]}} ->
       Map = #{status => <<"success">>, id => Id},
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", 43200]),
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 43200]),
       {ok, Map};
     {error, Reason} ->
       lager:error("Database query failed: ~p", [Reason]),
@@ -41,8 +41,8 @@ update(DecodeMap) ->
   case test_task_db:query(Sql, Params) of
     {ok, Count} ->
       Map = #{status => <<"success">>, data => Count},
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", 43200]),
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 43200]),
       {ok, Map};
     {error,Reason} ->
       lager:error("Not found: ~p", [Reason]),
@@ -58,7 +58,7 @@ delete(DecodeMap) ->
   RedisPid = whereis(redis_pid),
   _ = delete_cache(RedisPid, ["DEL", RedisKey]),
   case test_task_db:query(Sql, Params) of
-    {ok, _,  [{Id}]} ->
+    {ok, _, [{Id}]} ->
       reply_for_rows_delete([{Id}]);
     {error, Reason} ->
       reply_error(Reason)
@@ -80,10 +80,10 @@ get_cache_or_db(RedisPid, RedisKey, "GET", Params, Sql) ->
   case test_task_redis:query(RedisPid, ["GET", RedisKey]) of
     {ok, undefined} ->
       {ok, Map} = query_get_db(Sql, Params),
-      JsonResult = test_task_protocol:encode(Map),
-      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", 86400]);
-    {ok, BinJson} ->
-      {ok, BinJson};
+      Bin = term_to_binary(Map),
+      _ = set_or_update_cache(RedisPid, ["SET", RedisKey, Bin, "EX", 86400]);
+    {ok, Bin} ->
+      {ok, Bin};
     {error, Reason} ->
       lager:error("Error: ~p", [Reason]),
       {error, #{status => <<"error">>, message => <<"Internal server error">>}}
@@ -99,6 +99,7 @@ query_get_db(Sql, Params) ->
       Map = #{status => <<"error">>, message => <<"Internal server error">> },
       {error, Map}
   end.
+
 set_or_update_cache(RedisPid, ["SET", RedisKey, JsonResult, "EX", Ttl]) ->
   test_task_redis:query(RedisPid, ["SET", RedisKey, JsonResult, "EX", Ttl]).
 

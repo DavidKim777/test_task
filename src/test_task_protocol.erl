@@ -5,7 +5,6 @@
 decode(Json) ->
    jsx:decode(Json).
 
-encode(Data) when is_binary(Data) ->
-   Data;
-encode(Map) ->
-   jsx:encode(Map).
+encode(Data) ->
+   jsx:encode(Data).
+
