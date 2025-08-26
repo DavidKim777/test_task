@@ -6,7 +6,7 @@
 
 start(_Type, _Args) ->
 	Dispatch = cowboy_router:compile([
-		{'_', [{"/sport", test_task_handler, []}]}
+		{'_', [{"/", test_task_handler, []}]}
 	]),
 	{ok, _} = cowboy:start_clear(test_task_http_listener,
 		[{port, 8080}],
